@@ -1,34 +1,29 @@
 {
-  "name": "koishi-plugin-yt-dlp",
-  "version": "0.0.8",
-  "description": "自动检测聊天中的 YouTube 链接并发送视频。",
+  "name": "koishi-plugin-ytpdl",
+  "version": "0.0.23",
+  "description": "Koishi plugin to download youtube video with ytpdl",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
-    "lib"
+    "lib",
+    "dist"
   ],
   "license": "MIT",
+  "scripts": {
+    "build": "tsc -b"
+  },
   "keywords": [
-    "chatbot",
     "koishi",
     "plugin",
     "youtube",
-    "yt-dlp",
-    "video"
+    "yt-dlp"
   ],
   "peerDependencies": {
-    "koishi": "^4.17.2",
-    "koishi-plugin-ffmpeg": "^1.1.0"
-  },
-  "dependencies": {
-    "uuid": "^9.0.0"
+    "koishi": "^4.17.4"
   },
   "devDependencies": {
-    "@types/node": "^18.0.0",
-    "@types/uuid": "^9.0.0",
-    "typescript": "^5.0.0"
+    "@types/node": "^20.14.2",
+    "typescript": "^5.4.5"
   },
-  "scripts": {
-    "build": "tsc"
-  }
+  "dependencies": {}
 }
