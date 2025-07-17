@@ -2,6 +2,21 @@ import { Context } from 'koishi'
 import { Config } from './config'
 import * as path from 'path'
 
+export function extractYoutubeUrls(text: string): string[] {
+  // 参考用户提供的 Python 正则表达式，适配 JavaScript
+  // 这个正则表达式可以匹配多种 YouTube 域名和路径结构
+  const youtubeUrlPattern = /(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be|youtube-nocookie\.com)(\/watch\?v=|\/embed\/|\/v\/|\/shorts\/|\/live\/|\/playlist\?list=|\/channel\/|\/user\/)?([a-zA-Z0-9_-]{11,})([^#&\n\r ]*)/g;
+
+  const matches = text.match(youtubeUrlPattern);
+  
+  // 使用 Set 去重
+  if (matches) {
+    return Array.from(new Set(matches));
+  }
+  
+  return [];
+}
+
 export async function downloadVideo(ctx: Context, config: Config, url: string): Promise<string> {
   const endpoint = `${config.host}/api/v1/exec`
 
@@ -87,27 +102,4 @@ export async function pollDownloadState(ctx: Context, config: Config, processId:
   }
 
   throw new Error('下载超时')
-}
-
-export function extractVideoIds(text: string): string[] {
-  // 正则表达式，用于匹配多种 YouTube 链接格式并提取视频 ID
-  // 支持的格式:
-  // - https://www.youtube.com/watch?v=VIDEO_ID
-  // - https://m.youtube.com/watch?v=VIDEO_ID
-  // - https://youtu.be/VIDEO_ID
-  // - https://www.youtube.com/embed/VIDEO_ID
-  // - 以及带有时间戳等参数的链接
-  const youtubeRegex = /(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/g;
-  
-  const matches = text.matchAll(youtubeRegex);
-  const videoIds = new Set<string>();
-  
-  for (const match of matches) {
-    // match[1] 是正则表达式中捕获组的内容，即视频 ID
-    if (match[1]) {
-      videoIds.add(match[1]);
-    }
-  }
-  
-  return Array.from(videoIds);
 }

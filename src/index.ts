@@ -1,6 +1,6 @@
 import { Context, h, Session } from 'koishi'
 import { Config } from './config'
-import { downloadVideo, pollDownloadState, extractVideoIds } from './utils'
+import { downloadVideo, pollDownloadState, extractYoutubeUrls } from './utils'
 import { promises as fs } from 'fs'
 import * as path from 'path'
 
@@ -8,7 +8,7 @@ export const name = 'ytpdl'
 export { Config }
 export const inject = ['http']
 
-async function handleDownload(session: Session, url: string, ctx: Context, config: Config) {
+async function handleDownload(session: Session, url: string, ctx: Context, config: Config, isAutoParse = false) {
   const logger = ctx.logger('ytpdl')
   if (!session || !url) return
 
@@ -17,7 +17,10 @@ async function handleDownload(session: Session, url: string, ctx: Context, confi
   }
 
   try {
-    await session.send('正在请求下载...')
+    // 自动解析模式下不发送“正在请求下载”
+    if (!isAutoParse) {
+      await session.send('正在请求下载...')
+    }
     const processId = await downloadVideo(ctx, config, url)
     if (config.debug) {
       logger.info(`Download process started with ID: ${processId}`)
@@ -57,36 +60,48 @@ async function handleDownload(session: Session, url: string, ctx: Context, confi
 
   } catch (error) {
     logger.error(error)
-    // 在自动下载模式下，不发送错误消息以避免刷屏
-    // if (error instanceof Error) {
-    //   return session.send(`处理失败: ${error.message}`)
-    // }
+    // 在自动下载模式下，根据配置决定是否发送错误消息
+    if (isAutoParse && !config.showError) {
+      return
+    }
+    if (error instanceof Error) {
+      return session.send(`处理失败: ${error.message}`)
+    }
   }
 }
 
 export function apply(ctx: Context, config: Config) {
   const logger = ctx.logger('ytpdl')
+  const lastProcessedUrls: Record<string, number> = {}
 
   ctx.command('ytdl <url:string>', '下载 YouTube 视频')
     .action(async ({ session }, url) => {
       if (!session) return
       if (!url) return '请输入 YouTube 链接。'
-      return handleDownload(session, url, ctx, config)
+      return handleDownload(session, url, ctx, config, false)
     })
 
   ctx.middleware(async (session, next) => {
-    if (session.selfId === session.bot.selfId || !session.content) return next()
+    // 如果关闭了自动解析，或者消息为空，或者消息是机器人自己发的，则跳过
+    if (!config.autoParse || !session.content || session.userId === session.bot.userId) {
+      return next()
+    }
 
-    // 如果是 ytdl 指令，则不进行自动处理
-    if (session.content.startsWith('ytdl')) return next()
+    const urls = extractYoutubeUrls(session.content)
 
-    const videoIds = extractVideoIds(session.content)
+    if (urls.length > 0) {
+      for (const url of urls) {
+        const channelKey = `${session.channelId}:${url}`
+        const now = Date.now()
+        const lastTime = lastProcessedUrls[channelKey] || 0
 
-    if (videoIds.length > 0) {
-      for (const videoId of videoIds) {
-        const standardUrl = `https://www.youtube.com/watch?v=${videoId}`
-        // 无需等待下载完成，以免阻塞后续消息处理
-        handleDownload(session, standardUrl, ctx, config)
+        if (now - lastTime > config.parseInterval * 1000) {
+          lastProcessedUrls[channelKey] = now
+          // 无需等待下载完成，以免阻塞后续消息处理
+          handleDownload(session, url, ctx, config, true)
+        } else if (config.debug) {
+          logger.info(`URL ${url} is in cooldown for channel ${session.channelId}.`)
+        }
       }
     }
 
