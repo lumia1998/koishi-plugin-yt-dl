@@ -1,6 +1,6 @@
 import { Context, h, Session } from 'koishi'
 import { Config } from './config'
-import { downloadVideo, pollDownloadState, extractYoutubeUrls } from './utils'
+import { downloadVideo, pollDownloadState, extractYouTubeUrls } from './utils'
 import { promises as fs } from 'fs'
 import * as path from 'path'
 
@@ -17,8 +17,9 @@ async function handleDownload(session: Session, url: string, ctx: Context, confi
   }
 
   try {
-    // 自动解析模式下不发送“正在请求下载”
-    if (!isAutoParse) {
+    if (isAutoParse) {
+      await session.send('正在解析视频中...')
+    } else {
       await session.send('正在请求下载...')
     }
     const processId = await downloadVideo(ctx, config, url)
@@ -60,8 +61,10 @@ async function handleDownload(session: Session, url: string, ctx: Context, confi
 
   } catch (error) {
     logger.error(error)
-    // 在自动下载模式下，根据配置决定是否发送错误消息
-    if (isAutoParse && !config.showError) {
+    if (isAutoParse) {
+      if (config.showError) {
+        session.send('请使用ytdl [链接]下载视频，如果无法下载请更新yt-dlp-webui docker版本')
+      }
       return
     }
     if (error instanceof Error) {
@@ -82,29 +85,17 @@ export function apply(ctx: Context, config: Config) {
     })
 
   ctx.middleware(async (session, next) => {
-    // 如果关闭了自动解析，或者消息为空，或者消息是机器人自己发的，则跳过
-    if (!config.autoParse || !session.content || session.userId === session.bot.userId) {
-      return next()
-    }
+    if (session.userId === session.bot.selfId || !session.content) return next()
 
-    const urls = extractYoutubeUrls(session.content)
+    const urls = extractYouTubeUrls(session.content)
 
     if (urls.length > 0) {
       for (const url of urls) {
-        const channelKey = `${session.channelId}:${url}`
-        const now = Date.now()
-        const lastTime = lastProcessedUrls[channelKey] || 0
-
-        if (now - lastTime > config.parseInterval * 1000) {
-          lastProcessedUrls[channelKey] = now
-          // 无需等待下载完成，以免阻塞后续消息处理
-          handleDownload(session, url, ctx, config, true)
-        } else if (config.debug) {
-          logger.info(`URL ${url} is in cooldown for channel ${session.channelId}.`)
-        }
+        // 无需等待下载完成，以免阻塞后续消息处理
+        handleDownload(session, url, ctx, config, true)
       }
     }
 
     return next()
-  })
+  }, true)
 }

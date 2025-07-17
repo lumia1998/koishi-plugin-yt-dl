@@ -2,19 +2,25 @@ import { Context } from 'koishi'
 import { Config } from './config'
 import * as path from 'path'
 
-export function extractYoutubeUrls(text: string): string[] {
-  // 参考用户提供的 Python 正则表达式，适配 JavaScript
-  // 这个正则表达式可以匹配多种 YouTube 域名和路径结构
-  const youtubeUrlPattern = /(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be|youtube-nocookie\.com)(\/watch\?v=|\/embed\/|\/v\/|\/shorts\/|\/live\/|\/playlist\?list=|\/channel\/|\/user\/)?([a-zA-Z0-9_-]{11,})([^#&\n\r ]*)/g;
+export function extractYouTubeUrls(text: string): string[] {
+  // This is a more robust YouTube URL regex that matches various YouTube domains and path structures.
+  const youtubeUrlPattern = new RegExp(
+    '(https?://)?(www\\.)?' +
+    '(youtube\\.com|youtu\\.be|youtube-nocookie\\.com)' + // Match main domains
+    '(/watch\\?v=|/embed/|/v/|/shorts/|/live/|/playlist\\?list=|/channel/|/user/)?' + // Match common paths
+    '([a-zA-Z0-9_-]{11,}|[a-zA-Z0-9_-]{34,}|[a-zA-Z0-9_-]{24,})' + // Match video ID, playlist ID, or channel ID
+    '([^#&\\n\\r ]*)', // Match any additional parameters until a space, newline, #, or &
+    'g'
+  );
 
-  const matches = text.match(youtubeUrlPattern);
-  
-  // 使用 Set 去重
-  if (matches) {
-    return Array.from(new Set(matches));
+  const links = new Set<string>();
+  let match;
+
+  while ((match = youtubeUrlPattern.exec(text)) !== null) {
+    links.add(match[0]);
   }
-  
-  return [];
+
+  return Array.from(links);
 }
 
 export async function downloadVideo(ctx: Context, config: Config, url: string): Promise<string> {
