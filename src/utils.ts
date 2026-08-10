@@ -26,10 +26,14 @@ export function extractYouTubeUrls(text: string): string[] {
 export async function downloadVideo(ctx: Context, config: Config, url: string): Promise<string> {
   const endpoint = `${config.host}/api/v1/exec`
 
-  const params = [
+  const defaultParams = [
     '-f',
     'bestvideo[height<=720][ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]',
   ]
+
+  const params: string[] = config.downloadParams?.trim()
+    ? config.downloadParams.split(/\s+/)
+    : defaultParams
 
   try {
     const response = await ctx.http.post<string>(endpoint, {
