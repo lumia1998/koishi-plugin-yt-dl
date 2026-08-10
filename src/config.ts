@@ -7,6 +7,7 @@ export interface Config {
   autoParse: boolean
   parseInterval: number
   showError: boolean
+  downloadParams: string
 }
 
 export const Config: Schema<Config> = Schema.object({
@@ -16,4 +17,7 @@ export const Config: Schema<Config> = Schema.object({
   autoParse: Schema.boolean().description('是否自动解析聊天中的 YouTube 链接').default(true),
   parseInterval: Schema.number().description('同一链接在多少秒内不再重复解析').default(180).min(1),
   showError: Schema.boolean().description('自动解析失败时是否发送错误提示').default(false),
+  downloadParams: Schema.string()
+    .description('yt-dlp 自定义下载参数（以空格分隔，例如：-f bestvideo[height<=720][ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]）。留空使用默认参数')
+    .default(''),
 })
